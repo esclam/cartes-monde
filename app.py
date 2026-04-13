@@ -27,10 +27,10 @@ else:
 
         @st.cache_data(ttl=600)
         def get_analysis(news_list):
-            # On force Claude à répondre de façon simple
+            # ON UTILISE LE NOM DE MODÈLE PLUS SIMPLE ICI
             prompt = f"Analyse ces titres et renvoie UNIQUEMENT un JSON (liste d'objets) avec: pays, lat, lng, cause, population. Titres: {news_list}"
             message = client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-3-5-sonnet-20240620", # Modèle plus récent et très fiable
                 max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -38,7 +38,6 @@ else:
 
         response_text = get_analysis(". ".join(titles))
         
-        # NETTOYAGE ET ENCODAGE (C'est ici qu'on règle ton erreur ASCII)
         start = response_text.find('[')
         end = response_text.rfind(']') + 1
         clean_json = response_text[start:end]
@@ -46,7 +45,6 @@ else:
 
         m = folium.Map(location=[20, 0], zoom_start=2, tiles="CartoDB dark_matter")
         for c in conflicts:
-            # On s'assure que le texte est propre pour la carte
             popup_text = f"<b>{c['pays']}</b><br>Cause: {c['cause']}<br>Population: {c.get('population', 'N/A')}"
             folium.Marker(
                 location=[float(c['lat']), float(c['lng'])],
@@ -56,7 +54,9 @@ else:
 
         st_folium(m, width="100%", height=600)
         st.write("### Détails des analyses de l'IA :")
-        st.table(conflicts) # On affiche un joli tableau en dessous de la carte
+        st.table(conflicts)
 
     except Exception as e:
+        # Si Sonnet ne marche pas non plus, on essaie une version encore plus basique
         st.error(f"Erreur technique : {e}")
+        st.info("Tentative de reconnexion au modèle Claude...")
