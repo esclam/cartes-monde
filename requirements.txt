@@ -1,0 +1,4 @@
+anthropic
+feedparser
+streamlit-folium
+folium
