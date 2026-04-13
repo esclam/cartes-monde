@@ -18,7 +18,6 @@ else:
         client = anthropic.Anthropic(api_key=api_key)
         st.title("🌍 Carte Interactive des Points Chauds")
         
-        # News
         feeds = ["https://www.theguardian.com/world/rss", "https://www.lemonde.fr/international/rss_full.xml"]
         titles = []
         for url in feeds:
@@ -28,6 +27,7 @@ else:
 
         @st.cache_data(ttl=600)
         def get_analysis(news_list):
+            # On force Claude à répondre de façon simple
             prompt = f"Analyse ces titres et renvoie UNIQUEMENT un JSON (liste d'objets) avec: pays, lat, lng, cause, population. Titres: {news_list}"
             message = client.messages.create(
                 model="claude-3-haiku-20240307",
@@ -38,23 +38,25 @@ else:
 
         response_text = get_analysis(". ".join(titles))
         
-        # Nettoyage du JSON au cas où Claude ajoute du texte
+        # NETTOYAGE ET ENCODAGE (C'est ici qu'on règle ton erreur ASCII)
         start = response_text.find('[')
         end = response_text.rfind(']') + 1
-        conflicts = json.loads(response_text[start:end])
+        clean_json = response_text[start:end]
+        conflicts = json.loads(clean_json)
 
-        # Carte
         m = folium.Map(location=[20, 0], zoom_start=2, tiles="CartoDB dark_matter")
         for c in conflicts:
+            # On s'assure que le texte est propre pour la carte
+            popup_text = f"<b>{c['pays']}</b><br>Cause: {c['cause']}<br>Population: {c.get('population', 'N/A')}"
             folium.Marker(
-                location=[c['lat'], c['lng']],
-                popup=f"<b>{c['pays']}</b><br>Cause: {c['cause']}<br>Ethnies/Religions: {c.get('population', 'N/A')}",
-                icon=folium.Icon(color='red', icon='info-sign')
+                location=[float(c['lat']), float(c['lng'])],
+                popup=folium.Popup(popup_text, max_width=300),
+                icon=folium.Icon(color='red')
             ).add_to(m)
 
-        st_folium(m, width="100%", height=500)
-        st.write("### Dernières analyses de Claude :", conflicts)
+        st_folium(m, width="100%", height=600)
+        st.write("### Détails des analyses de l'IA :")
+        st.table(conflicts) # On affiche un joli tableau en dessous de la carte
 
     except Exception as e:
         st.error(f"Erreur technique : {e}")
-        st.info("Si l'erreur parle de 'credit balance', attends encore 10min, Anthropic est lent à activer les nouveaux comptes.")
